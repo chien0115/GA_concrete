@@ -1,41 +1,49 @@
-function Y=crossover(P,c)
-%P=population
-%n=pair of chromosome to be crossovered
+function [Y, dispatch_times_new] = crossover(P, t, dispatch_times, c)
+    % P = Population
+    % dispatch_times = Matrix of dispatch times corresponding to the chromosomes
+    % c = Number of chromosome pairs to be crossed
 
-[x1 y1]=size(P);%獲取P尺寸 染色體和基因
-Z=zeros(2*c,y1);%初始化一個 2 * n 行，40 列的矩陣 Z，用來存儲交叉操作後的新染色體。每對交叉會生成 2 個新染色體，因此總共需要 2 * n 個行。
-for i=1:c
-    r1=randi(x1,1,2);%randi(x1, 1, 2) 隨機選擇兩個不同的染色體索引 r1(1) 和 r1(2)。
-    %1: 指定生成隨機數的矩陣的行數。這裡是 1 行。2: 指定生成隨機數的矩陣的列數。這裡是 2 列。
-    %這行代碼生成一個 1x2 的矩陣 r1，其中包含兩個隨機整數。這些整數的範圍是從 1 到 x1（即染色體的數量）。
-    %假设 x1 = 100，即种群中有 100 个染色体，那么 randi(x1, 1, 2) 可能生成如下结果： r1 = [23, 78]
-    while r1(1)==r1(2)
-        r1=randi(x1,1,2);%使用 while 循環來檢查生成的兩個隨機數是否相同。如果相同，則重新生成一對數字，直到它們不相同為止。
-        %使用 while 循环会不断重新生成 r1，直到两个元素不相同；而 if 语句在第一次检查后即使 r1 的两个元素仍然相同，它也不会继续检查。
+    [x1, y1] = size(P); % Size of the population and chromosomes (with dispatch times)
+    Z = zeros(2*c, y1); % Initialize matrix to store new chromosomes
+    dispatch_times_new = zeros(2*c, size(dispatch_times, 2)); % Initialize matrix to store new dispatch times
+
+    for i = 1:c
+        r1 = randi(x1, 1, 2); % Randomly select two different chromosomes
+        while r1(1) == r1(2)
+            r1 = randi(x1, 1, 2);
+        end
+        
+        % Select the parent chromosomes and their dispatch times
+        A1 = P(r1(1), :);
+        A2 = P(r1(2), :);
+        dispatch_times1 = dispatch_times(r1(1), :);
+        dispatch_times2 = dispatch_times(r1(2), :);
+        
+        % Randomly select crossover point
+        crossover_point = randi([2, y1 - t-1]);
+
+        % Perform crossover on chromosomes
+        B1 = A1(crossover_point:end);
+        A1(crossover_point:end) = A2(crossover_point:end);
+        A2(crossover_point:end) = B1;
+        
+        % Perform crossover on dispatch times
+        B_dispatch_times = dispatch_times1(crossover_point:end);
+        dispatch_times1(crossover_point:end) = dispatch_times2(crossover_point:end);
+        dispatch_times2(crossover_point:end) = B_dispatch_times;
+        
+        % Store new chromosomes and dispatch times
+        Z(2*i-1, 1:y1) = A1;
+        Z(2*i, 1:y1) = A2;
+        dispatch_times_new(2*i-1, :) = dispatch_times1;
+        dispatch_times_new(2*i, :) = dispatch_times2;
     end
-    A1=P(r1(1),:);%A1 和 A2 分別是選擇的兩個染色體。
-    A2=P(r1(2),:);
-    r2 = randi([2, y1 - 1]);%隨機選擇交叉點 r2，範圍從 1 到 40。這決定了從哪個位置開始進行交叉。
-    %執行交叉
-    B1 = A1(r2:end);%B1 保存 A1 在交叉點之後的部分。
-    A1(r2:end) = A2(r2:end);%將 A2 在交叉點之後的部分替換到 A1 中，將 A1 在交叉點之後的部分替換到 A2 中
-    A2(r2:end) = B1;
 
-    % while any(A1 == 0) || any(A2 == 0)
-    %     % Reassign chromosomes
-    %     r1 = randi(x1, 1, 2);
-    %     while r1(1) == r1(2)
-    %         r1 = randi(x1, 1, 2);
-    %     end
-    %     A1 = P(r1(1), :);
-    %     A2 = P(r1(2), :);
-    % 
-    %     r2 = randi([1, y1 - 1]);
-    %     B1 = A1(r2:end);
-    %     A1(r2:end) = A2(r2:end);
-    %     A2(r2:end) = B1;
-    % end
-    Z(2*i-1,:)=A1;%將生成的兩個新染色體 A1 和 A2 存儲到矩陣 Z 中。
-    Z(2*i,:)=A2;
+    Y = Z; % Return the new population
+
+    % Display the results for debugging
+    disp('Chromosomes after Crossover:');
+    disp(Y);
+    disp('Dispatch Times after Crossover:');
+    disp(dispatch_times_new);
 end
-Y=Z;%將結果 Z 返回給調用該函數的部分，Y 是包含交叉後的新染色體的矩陣。

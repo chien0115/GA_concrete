@@ -5,8 +5,8 @@ clc
 
 % 參數設置
 n = 200; % 初始種群大小
-c = 30; % 需要進行交叉的染色體對數
-m = 50; % 需要進行突變的染色體數
+c = 10; % 需要進行交叉的染色體對數
+m = 20; % 需要進行突變的染色體數
 tg = 100; % 總代數
 num_sites = 5; % 工地
 % num_sites_with_factory = num_sites + 1; % 包括工廠的總工地數
@@ -25,7 +25,7 @@ time = [
     40, 30;  % 去程到工地 3 需要 40 分鐘，回程需要 30 分鐘
     35, 30;  % 去程到工地 4 需要 35 分鐘，回程需要 30 分鐘
     20, 15;  % 去程到工地 5 需要 20 分鐘，回程需要 15 分鐘
-];
+    ];
 
 % 定義各工地的參數
 max_interrupt_time = [5, 5, 15,15,10]; % 工地最大容許中斷時間 (分鐘)
@@ -57,27 +57,44 @@ for i = 1:tg
     K = zeros(tg, 2); % 儲存適應度的矩陣
     [x1, y1] = size(P);
     % 交配操作
-    
+
 
     if rand() <= crossoverRate
-        % 選擇交叉的染色體對
-        crossover_population = crossover(P, c);
-        % 更新種群（將新生成的染色體加入原有種群）
-        P = [P; crossover_population];
+        % 选择交叉的染色体对
+        [C, dispatch_times_new] = crossover(P, t,dispatch_times, c);
+        % 输出交叉操作后的结果
+        disp('Chromosomes after Crossover:');
+        disp(C);
+        disp('Dispatch Times after Crossover:');
+        disp(dispatch_times_new);
+        % 更新种群（将新生成的染色体和对应的派遣时间加入原有种群）
+        P=[P;C];
+        dispatch_times = [dispatch_times; dispatch_times_new];
     end
 
     if rand() <= mutationRate
-        % 選擇交叉的染色體對
-        crossover_population = crossover(P, c);
-        % 更新種群（將新生成的染色體加入原有種群）
-        P = [P; crossover_population];
+        % 选择变异的染色体
+        [M, dispatch_times_new] = mutation(P,t, dispatch_times, m);
+        % 输出变异操作后的结果
+        disp('Chromosomes after Mutation:');
+        disp(M);
+        disp('Dispatch Times after Mutation:');
+        disp(dispatch_times_new);
+        % 更新种群（将变异后的染色体和对应的派遣时间加入原有种群）
+        P=[P;M];
+        dispatch_times = [dispatch_times; dispatch_times_new];
     end
+    % 输出更新后的种群和派遣时间
+    disp('Updated Population:');
+    disp(P);
+    disp('Updated Dispatch Times:');
+    disp(dispatch_times);
 
     % 評估操作
-    [E, dispatch_times] = evaluation(P, t, time_windows, dispatch_times, work_time, time, max_interrupt_time, truck_max_interrupt_time, demand_trips, penalty_rate_per_min); % 評估族群 P 中每個染色體的適應度
-    
-    [P, S, best_dispatch_times] = selection(P, E, n,dispatch_times); % 根據適應度值 E 選擇族群中的染色體
-    
+    [E, dispatch_times_for_chromosome] = evaluation(P, t, time_windows, num_sites, dispatch_times, work_time, time, max_interrupt_time, truck_max_interrupt_time, demand_trips, penalty_rate_per_min); % 評估族群 P 中每個染色體的適應度
+
+    [P, S, best_dispatch_times] = selection(P, E,t, n,dispatch_times_for_chromosome); % 根據適應度值 E 選擇族群中的染色體
+
 
     K(i,1) = sum(S) / n; % 平均適應度
     K(i,2) = min(S); % 最佳適應度
@@ -88,17 +105,21 @@ for i = 1:tg
     plot(K(:, 2), 'r.'); drawnow
 end
 
-[maxValue, index] = max(K(:, 2)); % 提取出最大適應度值
+[minValue, index] = min(K(:, 2)); % 提取出最小適應度值
+best_chromosome_dispatch_times=best_dispatch_times(index, :);
 % 提取最佳適應度值和最優解
-best_chromosome = P(index, :);
-best_dispatch_time = best_dispatch_times(index, :);
-P2 = [best_chromosome; best_dispatch_time];
+% 提取最佳染色體基因和最優解
+best_chromosome = P(index, 1:(y1 - t)); % 提取基因部分
+
+
+% 更新 P2 包含基因和对应的调度时间
+P2 = [best_chromosome, best_dispatch_times];
 
 disp('Best Chromosome:');
 disp(best_chromosome);
 
 disp('Best Dispatch Times:');
-disp(best_dispatch_time);
+disp(best_chromosome_dispatch_times);
 
 % 解碼最佳解為派車計劃
 dispatch_plan = decode_chromosome(P2, num_sites, demand_trips, start_time, travel_time_to, work_time, travel_time_back);
@@ -161,12 +182,12 @@ return_times = zeros(total_trips, 1);
 truck_waiting_times = zeros(total_trips, 1);
 site_waiting_times = zeros(total_trips, 1);
 
+% 从 chromosome 中提取派遣时间
+plan_dispatch_times = chromosome(y1+1:end);
+
 % 初始化每个工地的派遣信息
 site_dispatch_info = zeros(total_trips, 5); % [site_id, truck_id, dispatch_time, arrival_time, work_start_time]
 
-% 在循环外生成有序的 dispatch_times
-% 生成 420 到 620 之间的随机时间，并进行排序
-% plan_dispatch_time = sort(420 + randi([1, 200], total_trips, 1));
 
 % 初始化卡车可用时间
 truck_availability = zeros(t, 1); % 每个卡车的可用时间
@@ -174,7 +195,7 @@ truck_availability = zeros(t, 1); % 每个卡车的可用时间
 for i = 1:total_trips
     site_ids(i) = chromosome(1,i);        % 当前的工地ID
     site_id = site_ids(i);                % 当前工地
-    plan_dispatch_times(i) = chromosome(2,i); % 计划派遣时间
+    plan_dispatch_times(i) = chromosome(y1+i); % 计划派遣时间从 chromosome 中提取 % 计划派遣时间
 
     % 获取各个时间参数
     travel_times_to(i) = travel_time_to(site_id);

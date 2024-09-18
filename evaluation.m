@@ -1,89 +1,96 @@
-function [E, dispatch_times] = evaluation(P, t, time_windows,num_sites, dispatch_times, work_time, time, max_interrupt_time, truck_max_interrupt_time, demand_trips, penalty_rate_per_min)
+function [E, dispatch_times_for_chromosome] = evaluation(P, t, time_windows, num_sites, dispatch_times, work_time, time, max_interrupt_time, truck_max_interrupt_time, demand_trips, penalty_rate_per_min)
     [x1, y1] = size(P);  % 獲取染色體數量和每個染色體的位元數
-    H = zeros(1, x1);  % 初始化適應度值
-    num_sites_with_factory = num_sites + 1; % 包括工廠的總工地數
 
-    for i = 1:x1 % 遍歷每個染色體
-        truck_availability = zeros(1, t); % 追踪每台卡車何時可以再次使用
-        disp(size(num_sites));
-        site_dispatch_info = cell(num_sites, 1); % 每個工地的派遣信息  工廠應該是只有到工廠時間
+    num_dispatch_times = t;  % 派遣時間的部分
+    num_dispatch_order = y1 - num_dispatch_times;  % 派遣順序的部分
+    H = zeros(1, x1);  % 初始化適應度值
+    num_sites_with_factory = num_sites + 1;  % 包括工廠的總工地數
+
+    for i = 1:x1  % 遍歷每個染色體
+        truck_availability = zeros(1, t);  % 追踪每台卡車何時可以再次使用
         
         % 初始化懲罰值
-        penalty_side_time = zeros(1, num_sites); % 每個工地和工廠的懲罰時間
-        penalty_truck_time = 0; % 每個染色體的卡車等待懲罰時間
+        penalty_side_time = zeros(1, num_sites);  % 每個工地的懲罰時間
+        penalty_truck_time = 0;  % 卡車等待懲罰時間
         
-        for k = 1:y1
-            site_id = P(i, k);
+        % 取出派遣時間部分
+        dispatch_times_for_chromosome(i,:) = P(i, num_dispatch_order+1:end);
+        
+        % 取出派遣順序部分
+        dispatch_order_for_chromosome = P(i, 1:num_dispatch_order);
 
-            % 檢查 site_id 是否是有效的工地或工廠
-            if site_id < 1 || site_id > num_sites_with_factory % 如果超出範圍
+        % 初始化工地的派遣信息
+        arrival_time = zeros(num_sites_with_factory, num_dispatch_order);
+        start_time = zeros(num_sites_with_factory, num_dispatch_order);
+        finish_time = zeros(num_sites_with_factory, num_dispatch_order);
+
+        previous_site_id = 0;  % 初始化上一個工地的 site_id
+
+        for k = 1:num_dispatch_order
+            site_id = dispatch_order_for_chromosome(k);
+
+            % 檢查 site_id 是否有效
+            if site_id < 1 || site_id > num_sites_with_factory
                 error('site_id 超出有效範圍: %d', site_id);
             end
 
-            % 初始化工地和工廠的派遣信息（如果尚未初始化）
-            if isempty(site_dispatch_info{site_id})
-                site_dispatch_info{site_id} = struct('arrival_time', [], 'start_time', [], 'finish_time', []);
-            end
-
-            % 確保 k 不超出 dispatch_times 的範圍
+            % 計算派遣時間
             if k <= t
-                % 前 t 台卡車使用固定的派遣時間
                 truck_id = k;
-                if k > size(dispatch_times, 2)
-                    error('k 值超出了 dispatch_times 的列數: %d', k);
-                end
-                actual_dispatch_time = dispatch_times(i, k);
+                % 使用染色體中對應的派遣時間
+                actual_dispatch_time = dispatch_times_for_chromosome(k);
             else
-                % 後續卡車使用回程時間作為派遣時間
+                % 從可用的卡車中選擇最早可用的卡車
                 [next_available_time, truck_id] = min(truck_availability);
-                % 從之前的回程時間中確定派遣時間
-                if truck_id <= t
-                    actual_dispatch_time = max(next_available_time, dispatch_times(i, mod(k-1, t) + 1));
-                else
-                    actual_dispatch_time = next_available_time;
-                end
+                actual_dispatch_time = max(next_available_time, dispatch_times_for_chromosome(mod(k-1, t) + 1));
             end
 
-            % 取得去程和回程時間
-            if site_id < num_sites_with_factory
-                %則表示當前要前往的點是工地
+            if site_id == num_sites_with_factory
+                % 處理工廠的情況
+                % 計算到達工地的時間
+                work_start_time_site = max(actual_dispatch_time + time(previous_site_id, 1), time_windows(site_id, 1));
+                finish_time_site = work_start_time_site + work_time(previous_site_id);
+
+                % 計算回到工廠的時間
+                return_time = finish_time_site + time(previous_site_id, 2);
+
+                % 更新卡車的可用時間
+                truck_availability(truck_id) = return_time;
+
+                % 更新工廠的派遣信息
+                return_time(site_id, k) = return_time;
+            else
+                % 處理工地的情況
                 travel_to_site = time(site_id, 1);
                 work_start_time_site = max(actual_dispatch_time + travel_to_site, time_windows(site_id, 1));
                 finish_time_site = work_start_time_site + work_time(site_id);
-            else%則表示當前要前往的點是工廠
-                % 工廠 (site_id == num_sites_with_factory)
-                travel_to_site = time(site_id, 1);
-                work_start_time_site = max(actual_dispatch_time + travel_to_site, time_windows(site_id, 1));
-                finish_time_site = work_start_time_site + work_time(site_id);
-                travel_back = time(site_id, 2);
-                return_time = finish_time_site + travel_back;
-            end
 
-            % 更新卡車的可用時間
-            truck_availability(truck_id) = return_time;
 
-            % 記錄工地和工廠的派遣信息
-            site_dispatch_info{site_id}.arrival_time = [site_dispatch_info{site_id}.arrival_time, actual_dispatch_time + travel_to_site];
-            site_dispatch_info{site_id}.start_time = [site_dispatch_info{site_id}.start_time, work_start_time_site];
-            site_dispatch_info{site_id}.finish_time = [site_dispatch_info{site_id}.finish_time, finish_time_site];
+                % 更新工地的派遣信息
+                arrival_time(site_id, k) = actual_dispatch_time + travel_to_site;
+                start_time(site_id, k) = work_start_time_site;
+                finish_time(site_id, k) = finish_time_site;
 
-            % 計算工地的中斷時間(卡車慢到)
-            if site_id < num_sites_with_factory && length(site_dispatch_info{site_id}.finish_time) > 1
-                previous_finish_time = site_dispatch_info{site_id}.finish_time(end-1);
-                interruption_time = actual_dispatch_time + travel_to_site - previous_finish_time;
+                % 計算工地的中斷時間
+                if length(finish_time(site_id, finish_time(site_id,:) > 0)) > 1
+                    previous_finish_time = finish_time(site_id, k-1);
+                    interruption_time = actual_dispatch_time + travel_to_site - previous_finish_time;
 
-                if interruption_time > max_interrupt_time(site_id)
-                    penalty_side_time(site_id) = penalty_side_time(site_id) + (interruption_time - max_interrupt_time(site_id));
-                end
-            end
-
-            % 計算卡車的等待時間(卡車快到)
-            truck_waiting_time = work_start_time_site - (actual_dispatch_time + travel_to_site);
-            if truck_waiting_time > 0
-                if truck_waiting_time > truck_max_interrupt_time
-                    penalty_truck_time = penalty_truck_time + truck_waiting_time;
+                    if interruption_time > max_interrupt_time(site_id)
+                        penalty_side_time(site_id) = penalty_side_time(site_id) + (interruption_time - max_interrupt_time(site_id));
+                    end
                 end
 
+                % 計算卡車的等待時間
+                truck_waiting_time = work_start_time_site - (actual_dispatch_time + travel_to_site);
+                if truck_waiting_time > 0
+                    if truck_waiting_time > truck_max_interrupt_time
+                        penalty_truck_time = penalty_truck_time + truck_waiting_time;
+                    end
+                end
+
+                % 更新上一個工地的 site_id
+                previous_site_id = site_id;
             end
         end
 
@@ -97,5 +104,5 @@ function [E, dispatch_times] = evaluation(P, t, time_windows,num_sites, dispatch
         H(i) = -total_penalty;
     end
 
-    E = H;
+    E = H;  % 返回適應度值
 end

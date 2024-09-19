@@ -14,27 +14,30 @@ function [Y, dispatch_times_new] = crossover(P, t, dispatch_times, c)
         end
         
         % Select the parent chromosomes and their dispatch times
-        A1 = P(r1(1), :);
-        A2 = P(r1(2), :);
-        dispatch_times1 = dispatch_times(r1(1), :);
+        A1 = P(r1(1), 1:y1-t); % 只有派遣順序
+        A2 = P(r1(2), 1:y1-t);
+        dispatch_times1 = dispatch_times(r1(1), :); % 派遣時間部分
         dispatch_times2 = dispatch_times(r1(2), :);
+
+
         
         % Randomly select crossover point
-        crossover_point = randi([2, y1 - t-1]);
+        crossover_point = randi([2, y1 - t-1]);%派遣順序交配
 
         % Perform crossover on chromosomes
         B1 = A1(crossover_point:end);
         A1(crossover_point:end) = A2(crossover_point:end);
         A2(crossover_point:end) = B1;
         
-        % Perform crossover on dispatch times
-        B_dispatch_times = dispatch_times1(crossover_point:end);
-        dispatch_times1(crossover_point:end) = dispatch_times2(crossover_point:end);
-        dispatch_times2(crossover_point:end) = B_dispatch_times;
+        % Perform crossover on dispatch times 派遣時間交配
+        crossover_dispatch = randi([2, t-1]);%派遣順序交配
+        B_dispatch_times = dispatch_times1( crossover_dispatch:end);
+        dispatch_times1( crossover_dispatch:end) = dispatch_times2( crossover_dispatch:end);
+        dispatch_times2( crossover_dispatch:end) = B_dispatch_times;
         
         % Store new chromosomes and dispatch times
-        Z(2*i-1, 1:y1) = A1;
-        Z(2*i, 1:y1) = A2;
+        Z(2*i-1, :) = [A1, dispatch_times1];
+        Z(2*i, :)   = [A2, dispatch_times2];
         dispatch_times_new(2*i-1, :) = dispatch_times1;
         dispatch_times_new(2*i, :) = dispatch_times2;
     end

@@ -20,20 +20,22 @@ function [Y, dispatch_times_new] = crossover(P, t, dispatch_times, c)
         dispatch_times2 = dispatch_times(r1(2), :);
 
 
+        random_number = rand();
         
         % Randomly select crossover point
-        crossover_point = randi([2, y1 - t-1]);%派遣順序交配
+        crossover_point = ceil(random_number*(y1-t-1));
 
         % Perform crossover on chromosomes
-        B1 = A1(crossover_point:end);
-        A1(crossover_point:end) = A2(crossover_point:end);
-        A2(crossover_point:end) = B1;
+        B1 = A1(1:crossover_point);
+        A1(1:crossover_point) = A2(1:crossover_point);
+        A2(1:crossover_point) = B1;
         
         % Perform crossover on dispatch times 派遣時間交配
-        crossover_dispatch = randi([2, t-1]);%派遣順序交配
-        B_dispatch_times = dispatch_times1( crossover_dispatch:end);
-        dispatch_times1( crossover_dispatch:end) = dispatch_times2( crossover_dispatch:end);
-        dispatch_times2( crossover_dispatch:end) = B_dispatch_times;
+        dispatch_crossover_point=ceil(random_number*(t-1));
+
+        B_dispatch_times = dispatch_times1(1:dispatch_crossover_point);
+        dispatch_times1(1:dispatch_crossover_point) = dispatch_times2(1:dispatch_crossover_point);
+        dispatch_times2(1:dispatch_crossover_point) = B_dispatch_times;
         
         % Store new chromosomes and dispatch times
         Z(2*i-1, :) = [A1, dispatch_times1];

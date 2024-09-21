@@ -1,64 +1,69 @@
-function [YY1, YY2, best_dispatch_times] = selection(P, F,t, p, dispatch_times)
-% P = Population, F = fitness value, p = population size
+function [YY1, YY2, best_dispatch_times] = selection(P, F, t, p, dispatch_times)
+    % P = Population, F = fitness value, p = population size
 
-F = abs(F);
-[x, y] = size(P);%有包含mutation、crossover的P 尺寸260*23
+    F = abs(F); % 確保 fitness 為正值
+    [x, y] = size(P); % 目前經歷過 crossover、mutation 的 P
 
+    % 確保不會選擇超過交配與變異產生的數量
+    num_to_select = round(min(x/2, p/2));  % 確保選擇不超過剩餘染色體數量
 
+    YY1 = zeros(num_to_select, y); % Store selected chromosomes
+    YY2 = zeros(num_to_select, 1); % Store fitness values
+    best_dispatch_times = zeros(num_to_select, size(dispatch_times, 2)); % Store dispatch times
 
-YY1 = zeros(p, y); % Store selected chromosomes
-YY2 = zeros(p, 1); % Store fitness values
-best_dispatch_times = zeros(p, t); % Store dispatch times for selected chromosomes 200*3
+    e = round(num_to_select / 2); % Number of elite chromosomes to select
 
-e = 3; % Number of elite chromosomes to select
+    for i = 1:e % Select the top e chromosomes with the highest fitness values
+        c1 = find(F == min(F)); % Find index of the best fitness value 找到適應值最好的位置 因儲存適應度的陣列是一維
+        if length(c1) > 1
+            c1 = c1(1); % 如果有多個最小值，選擇第一個
+        end
 
-for i = 1:e % Select the top e chromosomes with the highest fitness values
-    [r1, c1]=find(F==min(F)); % Find index of the best fitness value
-    if length(find(F==min(F))) > 1
-        % 如果有多个最小值，则选择第一个
-        c1 = c1(1);
+        % Store selected chromosome, fitness value, and dispatch times
+        YY1(i, :) = P(c1, :);
+        YY2(i) = F(c1);
+        best_dispatch_times(i, :) = dispatch_times(c1, :);
+
+        % Remove selected chromosome from population
+        P(c1, :) = [];
+        F(c1) = [];
+        dispatch_times(c1, :) = [];
+
+        % 更新維度
+        [x, y] = size(P);
+
+        % 確保在選擇過程中不超出染色體數量
+        if x == 0
+            break;
+        end
     end
 
-    % Store selected chromosome, fitness value, and dispatch times
-    YY1(i, :) = P(c1, :);
-    YY2(i) = F(c1);
-    disp('Size of best_dispatch_times:');
-    disp(size(best_dispatch_times));
+    % Selection based on fitness probabilities
+    D = F / sum(F); % Fitness proportionate selection
+    E = cumsum(D); % Cumulative probabilities
+    N = rand(1); % Random number for selection
 
-    disp('Size of dispatch_times:');
-    disp(size(dispatch_times));
-    best_dispatch_times(i, :) = dispatch_times(c1, :);
+    d1 = 1;
+    d2 = e; % Start from where we left off
 
-    % Remove selected chromosome from population
-    P(c1, :) = [];
-    F(c1) = [];
-    dispatch_times(c1, :) = [];
+    while d2 < num_to_select
+        if N < E(d1)
+            % Select chromosome based on cumulative probability
+            YY1(d2 + 1, :) = P(d1, :);
+            YY2(d2 + 1) = F(d1);
+            best_dispatch_times(d2 + 1, :) = dispatch_times(d1, :);
 
-    % Update dimensions
-    [x, y] = size(P);
-end
+            % Generate a new random number and update counters
+            N = rand(1);
+            d2 = d2 + 1;
+            d1 = 1;
 
-% Selection based on fitness probabilities
-D = F / sum(F); % Fitness proportionate selection
-E = cumsum(D); % Cumulative probabilities
-N = rand(1); % Random number for selection
-
-d1 = 1;
-d2 = e; % Start from where we left off
-
-while d2 < p
-    if N < E(d1)
-        % Select chromosome based on cumulative probability
-        YY1(d2 + 1, :) = P(d1, :);
-        YY2(d2 + 1) = F(d1);
-        best_dispatch_times(d2 + 1, :) = dispatch_times(d1, :);
-
-        % Generate a new random number and update counters
-        N = rand(1);
-        d2 = d2 + 1;
-        d1 = 1;
-    else
-        d1 = d1 + 1;
+            % 防止選擇超出範圍
+            if d2 >= x
+                break;
+            end
+        else
+            d1 = d1 + 1;
+        end
     end
-end
 end

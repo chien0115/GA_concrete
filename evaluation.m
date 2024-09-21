@@ -1,8 +1,7 @@
-function [E, dispatch_times_for_chromosome] = evaluation(P, t, time_windows, num_sites, dispatch_times, work_time, time, max_interrupt_time, truck_max_interrupt_time, demand_trips, penalty_rate_per_min)
+function E = evaluation(P, t, time_windows, num_sites, dispatch_times, work_time, time, max_interrupt_time, truck_max_interrupt_time, demand_trips, penalty_rate_per_min)
     [x1, y1] = size(P);  % 獲取染色體數量和每個染色體的位元數
 
-    num_dispatch_times = t;  % 派遣時間的部分
-    num_dispatch_order = y1 - num_dispatch_times;  % 派遣順序的部分
+    num_dispatch_order = y1;  % 派遣順序的部分
     H = zeros(1, x1);  % 初始化適應度值
     num_sites_with_factory = num_sites + 1;  % 包括工廠的總工地數
 
@@ -14,7 +13,7 @@ function [E, dispatch_times_for_chromosome] = evaluation(P, t, time_windows, num
         penalty_truck_time = 0;  % 卡車等待懲罰時間
         
         % 取出派遣時間部分
-        dispatch_times_for_chromosome(i,:) = P(i, num_dispatch_order+1:end);
+        dispatch_times_for_chromosome(i,:) = dispatch_times(i,:);
         
         % 取出派遣順序部分
         dispatch_order_for_chromosome = P(i, 1:num_dispatch_order);

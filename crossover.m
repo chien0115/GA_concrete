@@ -3,7 +3,7 @@ function [Y, dispatch_times_new] = crossover(P, t, dispatch_times, c)
     % dispatch_times = Matrix of dispatch times corresponding to the chromosomes
     % c = Number of chromosome pairs to be crossed
 
-    [x1, y1] = size(P); % Size of the population and chromosomes (with dispatch times)
+    [x1, y1] = size(P); % Size of the population and chromosomes
     Z = zeros(2*c, y1); % Initialize matrix to store new chromosomes
     dispatch_times_new = zeros(2*c, size(dispatch_times, 2)); % Initialize matrix to store new dispatch times
 
@@ -14,8 +14,8 @@ function [Y, dispatch_times_new] = crossover(P, t, dispatch_times, c)
         end
         
         % Select the parent chromosomes and their dispatch times
-        A1 = P(r1(1), 1:y1-t); % 只有派遣順序
-        A2 = P(r1(2), 1:y1-t);
+        A1 = P(r1(1), :); % 只有派遣順序
+        A2 = P(r1(2), :);
         dispatch_times1 = dispatch_times(r1(1), :); % 派遣時間部分
         dispatch_times2 = dispatch_times(r1(2), :);
 
@@ -23,7 +23,7 @@ function [Y, dispatch_times_new] = crossover(P, t, dispatch_times, c)
         random_number = rand();
         
         % Randomly select crossover point
-        crossover_point = ceil(random_number*(y1-t-1));
+        crossover_point = ceil(random_number*(y1-1));
 
         % Perform crossover on chromosomes
         B1 = A1(1:crossover_point);
@@ -38,8 +38,8 @@ function [Y, dispatch_times_new] = crossover(P, t, dispatch_times, c)
         dispatch_times2(1:dispatch_crossover_point) = B_dispatch_times;
         
         % Store new chromosomes and dispatch times
-        Z(2*i-1, :) = [A1, dispatch_times1];
-        Z(2*i, :)   = [A2, dispatch_times2];
+        Z(2*i-1, :) = A1;
+        Z(2*i, :)   = A2;
         dispatch_times_new(2*i-1, :) = dispatch_times1;
         dispatch_times_new(2*i, :) = dispatch_times2;
     end

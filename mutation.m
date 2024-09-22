@@ -27,9 +27,14 @@ for i = 1:m %目前x1=400 y1=20 n=5
     A1([pos(1), pos(2)]) = A1([pos(2), pos(1)]);
 
     % Swap dispatch times at the same positions
-    pos_dispatch = randperm(size(dispatch_times1, 2), 2); % Randomly select two different positions within dispatch_times1
-    %2代表列數
+    if t >= 2
+        pos_dispatch = randperm(t, 2);  % 隨機選擇兩個不同的位置
+        %2代表列數
     dispatch_times1([pos_dispatch(1), pos_dispatch(2)]) = dispatch_times1([pos_dispatch(2), pos_dispatch(1)]);
+    else
+        pos_dispatch = 1;  % 只有一台車，派遣時間保持不變，就不變異
+    end
+    
 
     % Store the new chromosome and dispatch times
     Z(i, :) = A1;
